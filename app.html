@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pantry Raid - recipes from what you already have</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; background:#fdf8f0; color:#3b2a1a; min-height:100vh; padding-bottom:60px; }
+  header { text-align:center; padding:36px 16px 8px; }
+  header h1 { font-size:32px; font-weight:800; }
+  header h1 span { color:#d97706; }
+  header p { color:#93765a; margin-top:6px; font-size:15px; }
+  .wrap { max-width:1000px; margin:0 auto; padding:0 16px; }
+  .filters { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:18px 0 6px; }
+  .filters button { border:1.5px solid #e3d3bd; background:#fff; color:#7c5f42; font-size:13px; font-weight:600; padding:7px 14px; border-radius:999px; cursor:pointer; }
+  .filters button.on { background:#d97706; border-color:#d97706; color:#fff; }
+  h2.cat { font-size:13px; letter-spacing:1.5px; text-transform:uppercase; color:#b08c63; margin:20px 0 8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1.5px solid #e3d3bd; background:#fff; border-radius:999px; padding:8px 15px; font-size:14px; cursor:pointer; user-select:none; transition:all .12s ease; }
+  .chip.have { background:#16a34a; border-color:#16a34a; color:#fff; font-weight:600; }
+  .results { margin-top:30px; }
+  .results h2 { font-size:20px; margin-bottom:4px; }
+  .results .hint { color:#93765a; font-size:14px; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid #eee0cb; border-radius:14px; padding:16px 18px; margin-bottom:12px; }
+  .card .top { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .card h3 { font-size:17px; }
+  .card .meta { font-size:13px; color:#93765a; white-space:nowrap; }
+  .bar { height:8px; background:#f3e8d7; border-radius:99px; margin:10px 0 8px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,#fbbf24,#16a34a); border-radius:99px; transition:width .25s ease; }
+  .card .pct { font-size:13px; font-weight:700; color:#16a34a; }
+  .missing { font-size:13px; color:#b45309; margin-top:4px; }
+  .full { font-size:13px; color:#16a34a; font-weight:600; margin-top:4px; }
+  details { margin-top:8px; }
+  summary { font-size:13px; color:#d97706; cursor:pointer; font-weight:600; }
+  ol.steps { margin:8px 0 0 18px; font-size:14px; color:#5c4630; line-height:1.6; }
+  footer { text-align:center; color:#b08c63; font-size:13px; margin-top:40px; }
+  footer a { color:#d97706; }
+</style>
+</head>
+<body>
+<header>
+  <h1>&#127859; Pantry <span>Raid</span></h1>
+  <p>Tick what you have. We'll tell you what you can cook.</p>
+</header>
+<div class="wrap">
+  <div class="filters">
+    <button data-f="all" class="on">Everything</button>
+    <button data-f="veg">Vegetarian</button>
+    <button data-f="vegan">Vegan</button>
+    <button data-f="quick">&le; 20 min</button>
+  </div>
+  <div id="pantry"></div>
+  <div class="results">
+    <h2 id="rhead">Your matches</h2>
+    <div class="hint" id="rhint"></div>
+    <div id="recipes"></div>
+  </div>
+</div>
+<footer><a href="index.html">&larr; About</a> &nbsp;|&nbsp; Pantry Raid &middot; idea #10 from the iLanis App Factory</footer>
+<script>
+var CATS=[
+ ["Produce",["onion","garlic","tomato","potato","carrot","bell pepper","spinach","lemon","avocado","mushroom","zucchini","fresh herbs"]],
+ ["Protein",["eggs","chicken breast","ground beef","canned tuna","chickpeas","black beans","lentils","tofu","bacon"]],
+ ["Dairy",["milk","butter","cheddar cheese","parmesan","yogurt","cream"]],
+ ["Pantry",["rice","pasta","flour tortillas","bread","canned tomatoes","olive oil","soy sauce","peanut butter","oats","flour","sugar","spices"]]
+];
+var RECIPES=[
+ {n:"Garlic Butter Pasta",t:15,tags:["veg"],ing:["pasta","garlic","butter","parmesan"],steps:["Boil pasta in salted water, save a cup of pasta water.","Melt butter, sizzle sliced garlic 2 min.","Toss pasta in with a splash of pasta water and grated parmesan."]},
+ {n:"Shakshuka",t:25,tags:["veg"],ing:["eggs","canned tomatoes","onion","bell pepper","garlic","spices"],steps:["Soften onion and pepper in olive oil.","Add garlic, spices and tomatoes; simmer 10 min.","Crack eggs into wells, cover until whites set."]},
+ {n:"Chicken Stir-Fry",t:20,tags:["quick"],ing:["chicken breast","bell pepper","onion","soy sauce","garlic","rice"],steps:["Cook rice.","Sear chicken strips hot, set aside.","Stir-fry veg, return chicken, glaze with soy sauce and garlic."]},
+ {n:"Black Bean Tacos",t:15,tags:["veg","vegan","quick"],ing:["black beans","flour tortillas","avocado","tomato","onion","lemon","spices"],steps:["Warm beans with spices and a splash of water.","Char tortillas.","Fill with beans, diced tomato, onion and avocado."]},
+ {n:"Tuna Melt",t:12,tags:["quick"],ing:["canned tuna","bread","cheddar cheese","butter"],steps:["Mix tuna with a little yogurt or butter.","Build sandwich with cheddar.","Grill in butter until golden both sides."]},
+ {n:"Lentil Soup",t:35,tags:["veg","vegan"],ing:["lentils","onion","carrot","garlic","canned tomatoes","spices"],steps:["Soften onion, carrot and garlic.","Add lentils, tomatoes and 4 cups water.","Simmer 25-30 min until lentils are soft; season."]},
+ {n:"Chickpea Salad Sandwich",t:10,tags:["veg","quick"],ing:["chickpeas","bread","yogurt","lemon","spices"],steps:["Mash chickpeas roughly.","Stir in yogurt, lemon juice and spices.","Pile onto bread."]},
+ {n:"Mushroom Omelette",t:12,tags:["veg","quick"],ing:["eggs","mushroom","butter","cheddar cheese"],steps:["Saute sliced mushrooms in butter.","Beat eggs, pour over mushrooms.","Fold with cheese when just set."]},
+ {n:"Fried Rice",t:18,tags:["quick"],ing:["rice","eggs","carrot","onion","soy sauce","garlic"],steps:["Scramble eggs in a hot pan, set aside.","Fry diced carrot, onion and garlic.","Add day-old or cooled rice and soy sauce; toss with eggs."]},
+ {n:"Peanut Noodles",t:15,tags:["veg","vegan","quick"],ing:["pasta","peanut butter","soy sauce","garlic","lemon"],steps:["Boil noodles.","Whisk peanut butter, soy sauce, garlic, lemon and hot water into a sauce.","Toss and serve."]},
+ {n:"Baked Potato with Cheese & Beans",t:40,tags:["veg"],ing:["potato","cheddar cheese","black beans","butter"],steps:["Bake or microwave potato until tender.","Warm beans.","Split potato, add butter, beans and cheese."]},
+ {n:"Avocado Toast with Egg",t:10,tags:["veg","quick"],ing:["bread","avocado","eggs","lemon"],steps:["Toast bread.","Mash avocado with lemon and salt.","Top with a fried or poached egg."]},
+ {n:"Tomato Lentil Pasta",t:25,tags:["veg","vegan"],ing:["pasta","lentils","canned tomatoes","onion","garlic"],steps:["Simmer lentils in tomato sauce with onion and garlic 20 min.","Boil pasta.","Combine and serve."]},
+ {n:"Tofu Scramble",t:15,tags:["veg","vegan","quick"],ing:["tofu","bell pepper","onion","spinach","spices"],steps:["Crumble tofu into a hot pan.","Add pepper and onion; cook 5 min.","Wilt in spinach and season."]},
+ {n:"Tuna Pasta",t:18,tags:["quick"],ing:["pasta","canned tuna","canned tomatoes","garlic","olive oil"],steps:["Boil pasta.","Warm garlic in oil, add tomatoes, simmer 8 min.","Flake in tuna, toss with pasta."]},
+ {n:"Veggie Quesadilla",t:12,tags:["veg","quick"],ing:["flour tortillas","cheddar cheese","bell pepper","onion","mushroom"],steps:["Saute sliced veg.","Fill tortilla with veg and cheese.","Toast in a dry pan until crisp both sides."]},
+ {n:"Overnight Oats",t:5,tags:["veg"],ing:["oats","milk","yogurt","peanut butter","sugar"],steps:["Mix oats, milk and yogurt in a jar.","Sweeten and add a spoon of peanut butter.","Chill overnight or at least 2 hours."]},
+ {n:"Beef & Potato Hash",t:25,tags:[],ing:["ground beef","potato","onion","garlic","eggs"],steps:["Crisp diced potato in oil.","Add onion, garlic and beef; brown.","Top with a fried egg."]},
+ {n:"Creamy Tomato Soup",t:20,tags:["veg","quick"],ing:["canned tomatoes","onion","garlic","cream","bread"],steps:["Soften onion and garlic.","Add tomatoes, simmer 10 min, blend.","Stir in cream; serve with toast."]},
+ {n:"Zucchini Fritters",t:20,tags:["veg","quick"],ing:["zucchini","eggs","flour","parmesan","garlic"],steps:["Grate and squeeze zucchini dry.","Mix with egg, flour, parmesan and garlic.","Fry spoonfuls 3 min per side."]}
+];
+var have={}, filter='all';
+function el(id){return document.getElementById(id);}
+function matches(r){
+  var got=0, miss=[];
+  r.ing.forEach(function(i){ if(have[i]) got++; else miss.push(i); });
+  return {got:got, pct:Math.round(100*got/r.ing.length), miss:miss};
+}
+function passes(r){
+  if(filter==='veg') return r.tags.indexOf('veg')>=0;
+  if(filter==='vegan') return r.tags.indexOf('vegan')>=0;
+  if(filter==='quick') return r.t<=20;
+  return true;
+}
+function renderPantry(){
+  var h='';
+  CATS.forEach(function(c){
+    h+='<h2 class="cat">'+c[0]+'</h2><div class="chips">';
+    c[1].forEach(function(i){
+      h+='<div class="chip'+(have[i]?' have':'')+'" data-i="'+i+'">'+i+'</div>';
+    });
+    h+='</div>';
+  });
+  el('pantry').innerHTML=h;
+  document.querySelectorAll('.chip').forEach(function(ch){
+    ch.onclick=function(){ var i=ch.getAttribute('data-i'); have[i]=!have[i]; if(!have[i])delete have[i]; renderPantry(); renderRecipes(); };
+  });
+}
+function renderRecipes(){
+  var nHave=Object.keys(have).length;
+  var list=RECIPES.filter(passes).map(function(r){ return {r:r, m:matches(r)}; });
+  list.sort(function(a,b){ return (b.m.pct-a.m.pct)||(a.r.t-b.r.t); });
+  el('rhint').textContent = nHave===0 ? 'Tick some ingredients to see what you can make.' :
+    nHave+' ingredient'+(nHave>1?'s':'')+' in your kitchen - best matches first.';
+  var h='';
+  list.forEach(function(x){
+    var r=x.r, m=x.m;
+    h+='<div class="card"><div class="top"><h3>'+r.n+'</h3><div class="meta">'+r.t+' min &middot; '+m.got+'/'+r.ing.length+'</div></div>';
+    h+='<div class="bar"><i style="width:'+m.pct+'%"></i></div><div class="pct">'+m.pct+'% match</div>';
+    if(m.miss.length===0) h+='<div class="full">You have everything - go cook!</div>';
+    else if(m.miss.length<=3) h+='<div class="missing">Missing: '+m.miss.join(', ')+'</div>';
+    else h+='<div class="missing">Missing '+m.miss.length+' ingredients</div>';
+    h+='<details><summary>How to make it</summary><ol class="steps">';
+    r.steps.forEach(function(s){ h+='<li>'+s+'</li>'; });
+    h+='</ol></details></div>';
+  });
+  if(list.length===0) h='<div class="hint">No recipes fit that filter.</div>';
+  el('recipes').innerHTML=h;
+}
+document.querySelectorAll('[data-f]').forEach(function(b){
+  b.onclick=function(){
+    filter=b.getAttribute('data-f');
+    document.querySelectorAll('[data-f]').forEach(function(x){x.classList.toggle('on',x===b);});
+    renderRecipes();
+  };
+});
+renderPantry(); renderRecipes();
+</script>
+</body>
+</html>
